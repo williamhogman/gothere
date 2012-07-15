@@ -14,17 +14,17 @@ func get_mt_qual(mediatype string) (string, float64, error) {
 	}
 	q, err := strconv.ParseFloat(par["q"], 32)
 	if err != nil {
-		q = 0
+		q = 1
 	}
 	return tp, q, nil
 }
 
 func select_mediatype(mediatype string) string {
-	var supported = [3]string{"application/json", "application/xml", "text/html"}
+	var supported = [3]string{"application/json","text/html","application/xml"}
 	accepted := strings.Split(mediatype, ",")
 
 	bestmime := ""
-	bestqual := 0.0
+	bestqual := 1.0
 	for _, acc := range accepted {
 		tp, q, err := get_mt_qual(acc)
 		if err != nil {

@@ -43,7 +43,8 @@ func (s NamedRedir) Validate() error {
 }
 
 func (s NamedRedir) SaveNew(c appengine.Context) error {
-	k := datastore.NewIncompleteKey(c, "NamedRedir", nil)
+	//k := datastore.NewIncompleteKey(c, "NamedRedir", nil)
+	k := datastore.NewKey(c,"NamedRedir",s.Identifier,0,nil)
 	_, err := datastore.Put(c, k, &s)
 	return err
 }
@@ -63,4 +64,13 @@ func GetRedirs(c appengine.Context, start_at int, count int) ([]NamedRedir, erro
 		return nil, err
 	}
 	return redirs, nil
+}
+
+func GetRedir(c appengine.Context,ident string) (NamedRedir, error) {
+	k := datastore.NewKey(c, "NamedRedir", ident, 0, nil)
+	var redir NamedRedir
+	if err := datastore.Get(c,k,&redir); err != nil {
+		return redir, err
+	}
+	return redir, nil
 }
