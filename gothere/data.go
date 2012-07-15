@@ -1,25 +1,66 @@
 package gothere
 
 import (
-	"errors"
 	"appengine"
 	"appengine/datastore"
+	"errors"
+	"net/url"
+	"regexp"
 )
 
 type NamedRedir struct {
-	Target string
+	Target     string
 	Identifier string
 }
 
-func get_redirs(c appengine.Context,start_at int,count int) ([]NamedRedir,error) {
+func (s NamedRedir) RenderHtml() string {
+	return "it is murder time!!"
+}
+
+type RedirCollection struct {
+	Redirs []NamedRedir
+}
+
+func (s RedirCollection) RenderHtml() string {
+	return "collection of redirs"
+}
+
+func (s NamedRedir) Validate() error {
+	NRIdent, _ := regexp.Compile("[\\w-]+")
+	u, err := url.Parse(s.Target)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return errors.New("Must have http or https scheme")
+	}
+
+	if !NRIdent.MatchString(s.Identifier) {
+		return errors.New("Identifier must be letters (a-z), numbers (0-9)" +
+			" underscores (_) and dashes (-) only")
+	}
+	return nil
+}
+
+func (s NamedRedir) SaveNew(c appengine.Context) error {
+	k := datastore.NewIncompleteKey(c, "NamedRedir", nil)
+	_, err := datastore.Put(c, k, &s)
+	return err
+}
+
+func (s NamedRedir) Location() string {
+	return "/urls/" + s.Identifier
+}
+
+func GetRedirs(c appengine.Context, start_at int, count int) ([]NamedRedir, error) {
 	if count > 100 {
 		return nil, errors.New("count has to be under 100")
 	}
 	q := datastore.NewQuery("NamedRedir").Offset(start_at).Limit(count)
-	
-	redirs := make([]NamedRedir,0, count)
-	if _, err := q.GetAll(c,&redirs); err != nil {
+
+	redirs := make([]NamedRedir, 0, count)
+	if _, err := q.GetAll(c, &redirs); err != nil {
 		return nil, err
 	}
-	return redirs,nil
+	return redirs, nil
 }
