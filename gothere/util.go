@@ -32,6 +32,16 @@ func write_xml(w io.Writer, obj interface{}) error {
 	return nil
 }
 
+
+type ErrorWrap struct {
+	Error string
+}
+
+
+func EWrap(obj interface{}) *ErrorWrap {
+	return &ErrorWrap{Error: StrOrErr(obj)}
+}
+
 func StrOrErr(obj interface{}) string {
 	switch obj.(type) {
 	case string:
@@ -76,15 +86,7 @@ func output_obj(w io.Writer, mediatype string, obj interface{}) error {
 	return nil
 }
 
-func Output(w http.ResponseWriter, mediatype string, obj interface{}) error {
-	w.Header().Set("Content-Type", mediatype)
-	return output_obj(w, mediatype, obj)
-}
 
-func Created(w http.ResponseWriter, loc string) {
-	w.Header().Set("Location", loc)
-	w.WriteHeader(http.StatusCreated)
-}
 
 func write_html(w io.Writer, obj interface{}) error {
 	switch targetobj := obj.(type) {
@@ -104,6 +106,20 @@ func write_html(w io.Writer, obj interface{}) error {
 
 type HtmlRenderable interface {
 	RenderHtml() string
+}
+
+func ReadData(mt string,from io.Reader,into interface{}) error {
+	switch mt {
+	case "application/json":
+		data, err := ioutil.ReadAll(from)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, into)
+	default:
+		return errors.New("Unknown type")
+	}
+	return nil
 }
 
 func ExtractData(r *http.Request, into interface{}) error {

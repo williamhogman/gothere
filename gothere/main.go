@@ -8,9 +8,8 @@ import (
 
 func init() {
 	http.HandleFunc("/login", do_login)
-	//http.HandleFunc("/urls/", urls)
 	http.HandleFunc("/", handler)
-	HandleRest("/urls/",UrlsGet,UrlsPost)
+	HandleMethods("/urls/",UrlsGet,UrlsPost)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -18,54 +17,37 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-type FnHandler func(http.ResponseWriter,*http.Request)
-func HandleRest(path string,fnget FnHandler,fnpost FnHandler) {
-	wrapper := func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case "GET":
-			fnget(w,r)
-		case "POST":
-			fnpost(w,r)
-		}
-	}
-	http.HandleFunc(path,wrapper)
-}
 
 
-func UrlsGet(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	accept := r.Header.Get("Accept")
-	output_t := select_mediatype(accept)
+func UrlsGet(x *ReqContext) {
+	c := appengine.NewContext(x.r)
 
 	redirs, err := GetRedirs(c, 0, 100)
 
-	if E500IfErr(w, err) {
+	if err != nil {
+		x.ServerError(err)
 		return
 	}
-
-	if err := Output(w, output_t, redirs); err != nil {
-		E500(w, err)
-		return
-	}
+	x.Ok(redirs)
 }
 
-func UrlsPost(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
+func UrlsPost(x *ReqContext) {
+	c := appengine.NewContext(x.r)
 	var data NamedRedir
-	if err := ExtractData(r, &data); err != nil {
-		E400(w, err)
+	if err := x.Data(&data); err != nil {
+		x.BadRequest(err)
 		return
 	}
 
 	if err := data.Validate(); err != nil {
-		E400(w, err)
+		x.BadRequest(err)
 		return
 	}
 	if err := data.SaveNew(c); err != nil {
-		E500(w, err)
+		x.BadRequest(err)
+		return
 	}
-
-	Created(w, data.Location())
+	x.Created(data.Location())
 }
 
 
