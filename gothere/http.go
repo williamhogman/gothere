@@ -1,28 +1,10 @@
 // My tiny kit of http extras for Go
 package gothere
-import ("net/http")
+import (
+	"net/http"
+)
 
 type FnHandler func(*ReqContext)
-
-func HandleMethods(path string,fnget FnHandler,fnpost FnHandler) {
-	wrapper := func(w http.ResponseWriter, r *http.Request) {
-		x := NewReqContext(w,r)
-		switch r.Method {
-		case "GET":
-			fnget(x)
-		case "POST":
-			fnpost(x)
-		}
-	}
-	http.HandleFunc(path,wrapper)
-}
-
-
-func Output(w http.ResponseWriter, mediatype string, obj interface{}) error {
-	w.Header().Set("Content-Type", mediatype)
-	return output_obj(w, mediatype, obj)
-}
-
 
 
 type ReqContext struct {
@@ -35,32 +17,59 @@ func NewReqContext(w http.ResponseWriter,r *http.Request) (*ReqContext){
 	return &ReqContext{w,r,""}
 }
 
-func (x ReqContext) Created(loc string){
-	x.w.Header().Set("Location",loc)
-	x.w.WriteHeader(http.StatusCreated)
-}
-
 func (x ReqContext) outputData(data interface{},code int) {
 	mt := x.getOutputFormat()
-	x.w.Header().Set("Content-Type", mt)
+	x.setHeader("Content-Type", mt)
 	x.w.WriteHeader(code)
-	if err := output_obj(x.w, mt, data); err != nil {
-		E500(x.w,err)
+	if err := outputObj(x.w, mt, data); err != nil {
+		panic(err)
 	}
+}
+
+func (x ReqContext) setHeader(header string,value string) {
+	x.w.Header().Set(header,value)
+}
+
+func (x ReqContext) Created(loc string){
+	x.setHeader("Location",loc)
+	x.w.WriteHeader(http.StatusCreated)
 }
 
 func (x ReqContext) Ok(data interface{}) {
 	x.outputData(data,http.StatusOK)
 }
 
+func (x ReqContext) SeeOther(url string){
+	x.setHeader("Location",url)
+	x.w.WriteHeader(http.StatusSeeOther)
+}
+
+func (x ReqContext) MovedPermanently(url string) {
+	x.setHeader("Location",url)
+	x.w.WriteHeader(http.StatusMovedPermanently)
+}
+
+
+func (x ReqContext) httpError(err interface{},code int) {
+	x.outputData(EWrap(err),code)
+}
 
 func (x ReqContext) ServerError(err interface{}) {
-	x.outputData(EWrap(err),500)
+	x.httpError(err,http.StatusInternalServerError)
 }
 
 func (x ReqContext) BadRequest(err interface{}) {
-	x.outputData(EWrap(err),400)
+	x.httpError(err,http.StatusBadRequest)
 }
+
+func (x ReqContext) MethodNotAllowed(err interface{}) {
+	x.httpError(err,http.StatusMethodNotAllowed)
+}
+
+func (x ReqContext) NotFound(err interface{}) {
+	x.httpError(err,http.StatusNotFound)
+}
+
 
 func (x ReqContext) getReqHeader(header string) string{
 	return x.r.Header.Get(header)
@@ -79,6 +88,16 @@ func (x ReqContext) Data(into interface{}) error {
 	return nil
 }
 
+type validater interface {
+	Validate() error
+}
+
+func (x ReqContext) ValidatedData(into validater) error {
+	if err := x.Data(into); err != nil {
+		return err
+	}
+	return into.Validate()
+}
 
 func (x ReqContext) getOutputFormat() string {
 	if x._outfmt == "" {
@@ -86,3 +105,5 @@ func (x ReqContext) getOutputFormat() string {
 	}
 	return x._outfmt
 }
+
+
